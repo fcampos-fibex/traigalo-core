@@ -62,9 +62,11 @@ DO $$ BEGIN
     CREATE TYPE order_status AS ENUM (
         'placed', 
         'accepted_by_store', 
+        'in_kitchen',
         'preparing', 
         'ready_for_pickup', 
         'driver_assigned', 
+        'driver_in_transit',
         'in_transit', 
         'delivered', 
         'cancelled'
@@ -72,6 +74,9 @@ DO $$ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
+
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'in_kitchen';
+ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'driver_in_transit';
 
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

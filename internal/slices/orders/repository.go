@@ -292,22 +292,22 @@ func (r *Repository) ExecuteAction(ctx context.Context, id uuid.UUID, action Ord
 		updateQuery = "UPDATE orders SET status = 'accepted_by_store' WHERE id = $1 AND status = 'placed'"
 		args = []any{id}
 	case "prepare":
-		updateQuery = "UPDATE orders SET status = 'preparing' WHERE id = $1 AND status = 'accepted_by_store'"
+		updateQuery = "UPDATE orders SET status = 'in_kitchen' WHERE id = $1 AND status = 'accepted_by_store'"
 		args = []any{id}
 	case "ready":
-		updateQuery = "UPDATE orders SET status = 'ready_for_pickup' WHERE id = $1 AND status = 'preparing'"
+		updateQuery = "UPDATE orders SET status = 'ready_for_pickup' WHERE id = $1 AND status IN ('in_kitchen', 'preparing')"
 		args = []any{id}
 	case "assign-driver", "assign_driver":
 		if action.DriverID == nil {
 			return fmt.Errorf("driver_id is required for assign-driver action")
 		}
-		updateQuery = "UPDATE orders SET status = 'driver_assigned', driver_id = $2 WHERE id = $1 AND status IN ('placed', 'accepted_by_store', 'preparing', 'ready_for_pickup')"
+		updateQuery = "UPDATE orders SET status = 'driver_assigned', driver_id = $2 WHERE id = $1 AND status IN ('placed', 'accepted_by_store', 'in_kitchen', 'preparing', 'ready_for_pickup')"
 		args = []any{id, *action.DriverID}
-	case "transit":
-		updateQuery = "UPDATE orders SET status = 'in_transit' WHERE id = $1 AND status = 'driver_assigned'"
+	case "pickup", "transit":
+		updateQuery = "UPDATE orders SET status = 'driver_in_transit' WHERE id = $1 AND status IN ('driver_assigned', 'ready_for_pickup')"
 		args = []any{id}
 	case "deliver":
-		updateQuery = "UPDATE orders SET status = 'delivered', payment_status = 'paid', delivered_at = $2 WHERE id = $1 AND status = 'in_transit'"
+		updateQuery = "UPDATE orders SET status = 'delivered', payment_status = 'paid', delivered_at = $2 WHERE id = $1 AND status IN ('driver_in_transit', 'in_transit')"
 		args = []any{id, time.Now().UTC()}
 	case "cancel":
 		updateQuery = "UPDATE orders SET status = 'cancelled' WHERE id = $1 AND status != 'delivered'"

@@ -11,10 +11,12 @@ type OrderStatus string
 const (
 	StatusPlaced          OrderStatus = "placed"
 	StatusAcceptedByStore OrderStatus = "accepted_by_store"
-	StatusPreparing       OrderStatus = "preparing"
+	StatusInKitchen       OrderStatus = "in_kitchen"
+	StatusPreparing       OrderStatus = "in_kitchen"
 	StatusReadyForPickup  OrderStatus = "ready_for_pickup"
 	StatusDriverAssigned  OrderStatus = "driver_assigned"
-	StatusInTransit       OrderStatus = "in_transit"
+	StatusDriverInTransit OrderStatus = "driver_in_transit"
+	StatusInTransit       OrderStatus = "driver_in_transit"
 	StatusDelivered       OrderStatus = "delivered"
 	StatusCancelled       OrderStatus = "cancelled"
 )

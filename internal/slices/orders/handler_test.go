@@ -33,3 +33,16 @@ func TestCreateOrderEmptyItems(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
 	}
 }
+
+func TestExecuteActionEmptyAction(t *testing.T) {
+	h := &Handler{repo: nil}
+
+	req := httptest.NewRequest(http.MethodPost, "/00000000-0000-0000-0000-000000000001/actions", bytes.NewBufferString(`{"action": ""}`))
+	w := httptest.NewRecorder()
+
+	h.ExecuteAction(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
