@@ -17,6 +17,7 @@ import (
 	"github.com/traigalo/traigalo-core/internal/slices/drivers"
 	"github.com/traigalo/traigalo-core/internal/slices/health"
 	"github.com/traigalo/traigalo-core/internal/slices/orders"
+	"github.com/traigalo/traigalo-core/internal/slices/rates"
 	"github.com/traigalo/traigalo-core/internal/slices/stores"
 )
 
@@ -58,14 +59,20 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	ratesService := rates.NewService(redisClient)
+	ratesHandler := rates.NewHandler(ratesService)
+
 	storesRepo := stores.NewRepository(dbPool)
 	storesHandler := stores.NewHandler(storesRepo)
 
-	ordersRepo := orders.NewRepository(dbPool)
+	ordersRepo := orders.NewRepository(dbPool, ratesService, redisClient)
 	ordersHandler := orders.NewHandler(ordersRepo)
 
+	driversHub := drivers.NewHub(redisClient)
+	go driversHub.Run(ctx)
+
 	driversRepo := drivers.NewRepository(redisClient)
-	driversHandler := drivers.NewHandler(driversRepo)
+	driversHandler := drivers.NewHandler(driversRepo, driversHub)
 
 	healthHandler := health.NewHandler(dbPool, redisClient)
 
@@ -79,9 +86,11 @@ func main() {
 
 	r.Route("/v2", func(r chi.Router) {
 		r.Get("/health", healthHandler.Check)
+		r.Mount("/rates", ratesHandler.Routes())
 		r.Mount("/stores", storesHandler.Routes())
 		r.Mount("/orders", ordersHandler.Routes())
 		r.Mount("/drivers/locations", driversHandler.Routes())
+		r.Get("/drivers/telemetry", driversHub.HandleWebSocket)
 	})
 
 	srv := &http.Server{

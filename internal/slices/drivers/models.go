@@ -7,10 +7,11 @@ import (
 )
 
 type LocationUpdate struct {
-	DriverID  uuid.UUID `json:"driver_id"`
-	Latitude  float64   `json:"latitude"`
-	Longitude float64   `json:"longitude"`
-	Timestamp time.Time `json:"timestamp"`
+	DriverID  uuid.UUID  `json:"driver_id"`
+	OrderID   *uuid.UUID `json:"order_id,omitempty"`
+	Latitude  float64    `json:"latitude"`
+	Longitude float64    `json:"longitude"`
+	Timestamp time.Time  `json:"timestamp"`
 }
 
 type NearbyDriver struct {

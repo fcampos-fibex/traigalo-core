@@ -2,12 +2,14 @@ package drivers
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
 const DriversGeoKey = "drivers:locations"
+const LocationUpdatesChannel = "drivers:telemetry:updates"
 
 type Repository struct {
 	redis *redis.Client
@@ -18,14 +20,37 @@ func NewRepository(redis *redis.Client) *Repository {
 }
 
 func (r *Repository) UpdateLocation(ctx context.Context, update LocationUpdate) error {
-	return r.redis.GeoAdd(ctx, DriversGeoKey, &redis.GeoLocation{
+	if r.redis == nil {
+		return nil
+	}
+
+	if err := r.redis.GeoAdd(ctx, DriversGeoKey, &redis.GeoLocation{
 		Name:      update.DriverID.String(),
 		Latitude:  update.Latitude,
 		Longitude: update.Longitude,
-	}).Err()
+	}).Err(); err != nil {
+		return err
+	}
+
+	payload, err := json.Marshal(OrderTrackingEvent{
+		OrderID:   update.OrderID,
+		DriverID:  update.DriverID,
+		Latitude:  update.Latitude,
+		Longitude: update.Longitude,
+		Timestamp: update.Timestamp,
+	})
+	if err == nil {
+		_ = r.redis.Publish(ctx, LocationUpdatesChannel, payload).Err()
+	}
+
+	return nil
 }
 
 func (r *Repository) FindNearby(ctx context.Context, lat, lng, radiusKM float64, count int) ([]NearbyDriver, error) {
+	if r.redis == nil {
+		return []NearbyDriver{}, nil
+	}
+
 	locations, err := r.redis.GeoRadius(ctx, DriversGeoKey, lng, lat, &redis.GeoRadiusQuery{
 		Radius:      radiusKM,
 		Unit:        "km",

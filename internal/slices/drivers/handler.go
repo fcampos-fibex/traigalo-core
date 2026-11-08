@@ -11,17 +11,28 @@ import (
 
 type Handler struct {
 	repo *Repository
+	hub  *Hub
 }
 
-func NewHandler(repo *Repository) *Handler {
-	return &Handler{repo: repo}
+func NewHandler(repo *Repository, hub *Hub) *Handler {
+	return &Handler{
+		repo: repo,
+		hub:  hub,
+	}
 }
 
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
 	r.Post("/", h.UpdateLocation)
 	r.Get("/nearby", h.FindNearby)
+	r.Get("/telemetry", h.TelemetryWebSocket)
 	return r
+}
+
+func (h *Handler) TelemetryWebSocket(w http.ResponseWriter, r *http.Request) {
+	if h.hub != nil {
+		h.hub.HandleWebSocket(w, r)
+	}
 }
 
 func (h *Handler) UpdateLocation(w http.ResponseWriter, r *http.Request) {

@@ -30,30 +30,34 @@ type OrderItem struct {
 }
 
 type Order struct {
-	ID               uuid.UUID   `json:"id"`
-	OrderNumber      int         `json:"order_number"`
-	CustomerID       uuid.UUID   `json:"customer_id"`
-	StoreID          uuid.UUID   `json:"store_id"`
-	DriverID         *uuid.UUID  `json:"driver_id,omitempty"`
-	Status           OrderStatus `json:"status"`
-	Subtotal         float64     `json:"subtotal"`
-	DeliveryFee      float64     `json:"delivery_fee"`
-	ServiceFee       float64     `json:"service_fee"`
-	Total            float64     `json:"total"`
-	DeliveryLatitude float64     `json:"delivery_latitude"`
-	DeliveryLongitude float64    `json:"delivery_longitude"`
-	DeliveryAddress  string      `json:"delivery_address"`
-	PaymentMethod    string      `json:"payment_method"`
-	PaymentStatus    string      `json:"payment_status"`
-	PlacedAt         time.Time   `json:"placed_at"`
-	DeliveredAt      *time.Time  `json:"delivered_at,omitempty"`
-	Items            []OrderItem `json:"items,omitempty"`
+	ID                uuid.UUID   `json:"id"`
+	OrderNumber       int         `json:"order_number"`
+	CustomerID        uuid.UUID   `json:"customer_id"`
+	StoreID           uuid.UUID   `json:"store_id"`
+	DriverID          *uuid.UUID  `json:"driver_id,omitempty"`
+	Status            OrderStatus `json:"status"`
+	Subtotal          float64     `json:"subtotal"`
+	DeliveryFee       float64     `json:"delivery_fee"`
+	ServiceFee        float64     `json:"service_fee"`
+	CommissionFee     float64     `json:"commission_fee"`
+	Total             float64     `json:"total"`
+	TotalUSD          float64     `json:"total_usd"`
+	BSRate            float64     `json:"bs_rate"`
+	TotalBS           float64     `json:"total_bs"`
+	DeliveryLatitude  float64     `json:"delivery_latitude"`
+	DeliveryLongitude float64     `json:"delivery_longitude"`
+	DeliveryAddress   string      `json:"delivery_address"`
+	PaymentMethod     string      `json:"payment_method"`
+	PaymentStatus     string      `json:"payment_status"`
+	PlacedAt          time.Time   `json:"placed_at"`
+	DeliveredAt       *time.Time  `json:"delivered_at,omitempty"`
+	Items             []OrderItem `json:"items,omitempty"`
 }
 
 type CreateOrderItemRequest struct {
 	ProductID uuid.UUID      `json:"product_id"`
 	Quantity  int            `json:"quantity"`
-	UnitPrice float64        `json:"unit_price"`
+	UnitPrice float64        `json:"unit_price,omitempty"`
 	Options   map[string]any `json:"options"`
 }
 

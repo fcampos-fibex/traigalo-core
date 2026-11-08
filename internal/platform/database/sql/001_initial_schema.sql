@@ -1,4 +1,3 @@
--- 001_initial_schema.sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "postgis";
 
@@ -14,15 +13,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
--- Seed System Vendors & Default Demo Users
-INSERT INTO users (id, keycloak_id, email, phone, first_name, last_name, role)
-VALUES 
-    ('11111111-1111-1111-1111-111111111111', 'usr_vendor_burger', 'vendor@burgercrave.com', '+584121000001', 'Chef', 'Burger', 'vendor'),
-    ('22222222-2222-2222-2222-222222222222', 'usr_vendor_sushi', 'vendor@sushiomakase.com', '+584121000002', 'Kenji', 'Sato', 'vendor'),
-    ('33333333-3333-3333-3333-333333333333', 'usr_driver_carlos', 'driver@traigalo.com', '+584121000003', 'Carlos', 'Mendoza', 'driver'),
-    ('44444444-4444-4444-4444-444444444444', 'usr_customer_demo', 'cliente@traigalo.com', '+584121000004', 'Freddy', 'Campos', 'customer')
-ON CONFLICT (keycloak_id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS stores (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -58,9 +48,9 @@ CREATE TABLE IF NOT EXISTS products (
     category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
     name VARCHAR(200) NOT NULL,
     description TEXT,
-    base_price NUMERIC(10, 2) NOT NULL CHECK (base_price >= 0),
+    base_price NUMERIC(12, 2) NOT NULL CHECK (base_price >= 0),
     is_available BOOLEAN NOT NULL DEFAULT true,
-    attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
+    attributes JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -68,45 +58,74 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE INDEX IF NOT EXISTS idx_products_store ON products(store_id);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 
+DO $$ BEGIN
+    CREATE TYPE order_status AS ENUM (
+        'placed', 
+        'accepted_by_store', 
+        'preparing', 
+        'ready_for_pickup', 
+        'driver_assigned', 
+        'in_transit', 
+        'delivered', 
+        'cancelled'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    customer_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    store_id UUID NOT NULL REFERENCES stores(id) ON DELETE RESTRICT,
-    driver_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    status VARCHAR(30) NOT NULL CHECK (status IN (
-        'pending_payment', 'payment_confirmed', 'accepted_by_store', 
-        'in_kitchen', 'ready_for_pickup', 'assigned_to_driver', 
-        'driver_in_transit', 'delivered', 'cancelled'
-    )),
-    subtotal NUMERIC(10, 2) NOT NULL CHECK (subtotal >= 0),
-    delivery_fee NUMERIC(10, 2) NOT NULL DEFAULT 0.00 CHECK (delivery_fee >= 0),
-    service_fee NUMERIC(10, 2) NOT NULL DEFAULT 0.00 CHECK (service_fee >= 0),
-    tip NUMERIC(10, 2) NOT NULL DEFAULT 0.00 CHECK (tip >= 0),
-    total NUMERIC(10, 2) NOT NULL CHECK (total >= 0),
-    delivery_address JSONB NOT NULL,
+    order_number SERIAL,
+    customer_id UUID NOT NULL REFERENCES users(id),
+    store_id UUID NOT NULL REFERENCES stores(id),
+    driver_id UUID REFERENCES users(id),
+    status order_status NOT NULL DEFAULT 'placed',
+    subtotal NUMERIC(12, 2) NOT NULL CHECK (subtotal >= 0),
+    delivery_fee NUMERIC(12, 2) NOT NULL DEFAULT 0.00 CHECK (delivery_fee >= 0),
+    service_fee NUMERIC(12, 2) NOT NULL DEFAULT 0.00 CHECK (service_fee >= 0),
+    commission_fee NUMERIC(12, 2) NOT NULL DEFAULT 0.00 CHECK (commission_fee >= 0),
+    total NUMERIC(12, 2) NOT NULL CHECK (total >= 0),
+    total_usd NUMERIC(12, 2) NOT NULL DEFAULT 0.00 CHECK (total_usd >= 0),
+    bs_rate NUMERIC(12, 4) NOT NULL DEFAULT 0.0000 CHECK (bs_rate >= 0),
+    total_bs NUMERIC(14, 2) NOT NULL DEFAULT 0.00 CHECK (total_bs >= 0),
     delivery_location GEOMETRY(Point, 4326) NOT NULL,
-    idempotency_key VARCHAR(128) UNIQUE NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    delivery_address TEXT NOT NULL,
+    payment_method VARCHAR(50) NOT NULL,
+    payment_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+    placed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    delivered_at TIMESTAMPTZ
 );
 
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS commission_fee NUMERIC(12, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_usd NUMERIC(12, 2) NOT NULL DEFAULT 0.00;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS bs_rate NUMERIC(12, 4) NOT NULL DEFAULT 0.0000;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_bs NUMERIC(14, 2) NOT NULL DEFAULT 0.00;
+
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_store ON orders(store_id);
 CREATE INDEX IF NOT EXISTS idx_orders_driver ON orders(driver_id);
-CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 
 CREATE TABLE IF NOT EXISTS order_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+    product_id UUID NOT NULL REFERENCES products(id),
     quantity INT NOT NULL CHECK (quantity > 0),
-    unit_price NUMERIC(10, 2) NOT NULL CHECK (unit_price >= 0),
-    total_price NUMERIC(10, 2) NOT NULL CHECK (total_price >= 0),
-    notes TEXT,
-    options JSONB NOT NULL DEFAULT '[]'::jsonb
+    unit_price NUMERIC(12, 2) NOT NULL CHECK (unit_price >= 0),
+    subtotal NUMERIC(12, 2) NOT NULL CHECK (subtotal >= 0),
+    options JSONB DEFAULT '{}'
 );
 
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+
+-- Seed System Vendors & Default Demo Users
+INSERT INTO users (id, keycloak_id, email, phone, first_name, last_name, role)
+VALUES 
+    ('11111111-1111-1111-1111-111111111111', 'usr_vendor_burger', 'vendor@burgercrave.com', '+584121000001', 'Chef', 'Burger', 'vendor'),
+    ('22222222-2222-2222-2222-222222222222', 'usr_vendor_sushi', 'vendor@sushiomakase.com', '+584121000002', 'Kenji', 'Sato', 'vendor'),
+    ('33333333-3333-3333-3333-333333333333', 'usr_driver_carlos', 'driver@traigalo.com', '+584121000003', 'Carlos', 'Mendoza', 'driver'),
+    ('44444444-4444-4444-4444-444444444444', 'usr_customer_demo', 'cliente@traigalo.com', '+584121000004', 'Freddy', 'Campos', 'customer')
+ON CONFLICT (keycloak_id) DO NOTHING;
 
 -- Seed Initial Stores & Menu
 INSERT INTO stores (id, owner_id, name, slug, description, location, address_line, commission_rate, is_open)
