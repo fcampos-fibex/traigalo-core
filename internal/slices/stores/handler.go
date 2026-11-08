@@ -23,6 +23,7 @@ func (h *Handler) Routes() chi.Router {
 	r.Post("/", h.Create)
 	r.Get("/{storeId}", h.GetByID)
 	r.Get("/{storeId}/products", h.ListProducts)
+	r.Post("/{storeId}/products", h.CreateProduct)
 	return r
 }
 
@@ -99,11 +100,41 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	store, err := h.repo.Create(r.Context(), req)
 	if err != nil {
-		http.Error(w, `{"error": "failed to create store"}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "failed to create store: `+err.Error()+`"}`, http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(store)
+}
+
+func (h *Handler) CreateProduct(w http.ResponseWriter, r *http.Request) {
+	storeIDStr := chi.URLParam(r, "storeId")
+	storeID, err := uuid.Parse(storeIDStr)
+	if err != nil {
+		http.Error(w, `{"error": "invalid store id"}`, http.StatusBadRequest)
+		return
+	}
+
+	var req CreateProductRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "invalid request payload"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.Name == "" || req.BasePrice < 0 {
+		http.Error(w, `{"error": "name and positive base_price are required"}`, http.StatusBadRequest)
+		return
+	}
+
+	product, err := h.repo.CreateProduct(r.Context(), storeID, req)
+	if err != nil {
+		http.Error(w, `{"error": "failed to create product: `+err.Error()+`"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(product)
 }

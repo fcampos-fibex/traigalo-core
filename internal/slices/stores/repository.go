@@ -148,3 +148,34 @@ func (r *Repository) Create(ctx context.Context, req CreateStoreRequest) (*Store
 
 	return &s, nil
 }
+
+func (r *Repository) CreateProduct(ctx context.Context, storeID uuid.UUID, req CreateProductRequest) (*Product, error) {
+	query := `
+		INSERT INTO products (
+			store_id, category_id, name, description, base_price, is_available, attributes
+		) VALUES (
+			$1, $2, $3, $4, $5, true, $6
+		)
+		RETURNING id, created_at, updated_at
+	`
+	attrsJSON, _ := json.Marshal(req.Attributes)
+	var p Product
+	p.StoreID = storeID
+	p.CategoryID = req.CategoryID
+	p.Name = req.Name
+	p.Description = req.Description
+	p.BasePrice = req.BasePrice
+	p.IsAvailable = true
+	p.Attributes = req.Attributes
+
+	err := r.pool.QueryRow(
+		ctx, query,
+		storeID, req.CategoryID, req.Name, req.Description, req.BasePrice, attrsJSON,
+	).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert product: %w", err)
+	}
+
+	return &p, nil
+}
