@@ -53,7 +53,7 @@ func (r *Repository) Create(ctx context.Context, req CreateOrderRequest) (*Order
 	for _, it := range req.Items {
 		var catalogPrice float64
 		var isAvailable bool
-		err := tx.QueryRow(ctx, "SELECT price, is_available FROM products WHERE id = $1 AND store_id = $2", it.ProductID, req.StoreID).Scan(&catalogPrice, &isAvailable)
+		err := tx.QueryRow(ctx, "SELECT base_price, is_available FROM products WHERE id = $1 AND store_id = $2", it.ProductID, req.StoreID).Scan(&catalogPrice, &isAvailable)
 		if err != nil {
 			return nil, fmt.Errorf("product %s not found in store: %w", it.ProductID, err)
 		}
