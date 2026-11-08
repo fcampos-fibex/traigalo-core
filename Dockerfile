@@ -1,23 +1,11 @@
-FROM golang:1.24-alpine AS builder
-
-WORKDIR /app
-
-RUN apk add --no-cache git
-
-COPY go.mod go.sum ./
-RUN go mod download
-
-COPY . .
-
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /traigalo-api cmd/api/main.go
-
 FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 
-COPY --from=builder /traigalo-api /app/traigalo-api
+COPY bin/api-linux-amd64 /app/traigalo-api
+RUN chmod +x /app/traigalo-api
 
 EXPOSE 8080
 
