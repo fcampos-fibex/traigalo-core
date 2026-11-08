@@ -297,7 +297,7 @@ func (r *Repository) ExecuteAction(ctx context.Context, id uuid.UUID, action Ord
 	case "ready":
 		updateQuery = "UPDATE orders SET status = 'ready_for_pickup' WHERE id = $1 AND status = 'preparing'"
 		args = []any{id}
-	case "assign-driver":
+	case "assign-driver", "assign_driver":
 		if action.DriverID == nil {
 			return fmt.Errorf("driver_id is required for assign-driver action")
 		}
