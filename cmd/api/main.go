@@ -14,12 +14,15 @@ import (
 	"github.com/traigalo/traigalo-core/internal/platform/cache"
 	"github.com/traigalo/traigalo-core/internal/platform/database"
 	"github.com/traigalo/traigalo-core/internal/platform/middleware"
+	"github.com/traigalo/traigalo-core/internal/slices/auth"
 	"github.com/traigalo/traigalo-core/internal/slices/categories"
 	"github.com/traigalo/traigalo-core/internal/slices/drivers"
 	"github.com/traigalo/traigalo-core/internal/slices/health"
 	"github.com/traigalo/traigalo-core/internal/slices/orders"
+	"github.com/traigalo/traigalo-core/internal/slices/payments"
 	"github.com/traigalo/traigalo-core/internal/slices/products"
 	"github.com/traigalo/traigalo-core/internal/slices/rates"
+	"github.com/traigalo/traigalo-core/internal/slices/reviews"
 	"github.com/traigalo/traigalo-core/internal/slices/stores"
 )
 
@@ -61,6 +64,9 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	authRepo := auth.NewRepository(dbPool)
+	authHandler := auth.NewHandler(authRepo)
+
 	ratesService := rates.NewService(redisClient)
 	ratesHandler := rates.NewHandler(ratesService)
 
@@ -72,6 +78,12 @@ func main() {
 
 	productsRepo := products.NewRepository(dbPool)
 	productsHandler := products.NewHandler(productsRepo)
+
+	paymentsRepo := payments.NewRepository(dbPool)
+	paymentsHandler := payments.NewHandler(paymentsRepo)
+
+	reviewsRepo := reviews.NewRepository(dbPool)
+	reviewsHandler := reviews.NewHandler(reviewsRepo)
 
 	ordersRepo := orders.NewRepository(dbPool, ratesService, redisClient)
 	ordersHandler := orders.NewHandler(ordersRepo)
@@ -94,10 +106,13 @@ func main() {
 
 	r.Route("/v2", func(r chi.Router) {
 		r.Get("/health", healthHandler.Check)
+		r.Mount("/auth", authHandler.Routes())
 		r.Mount("/rates", ratesHandler.Routes())
 		r.Mount("/stores", storesHandler.Routes())
 		r.Mount("/categories", categoriesHandler.Routes())
 		r.Mount("/products", productsHandler.Routes())
+		r.Mount("/payments", paymentsHandler.Routes())
+		r.Mount("/reviews", reviewsHandler.Routes())
 		r.Mount("/orders", ordersHandler.Routes())
 		r.Mount("/drivers/locations", driversHandler.Routes())
 		r.Get("/drivers/telemetry", driversHub.HandleWebSocket)

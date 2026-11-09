@@ -121,7 +121,40 @@ CREATE TABLE IF NOT EXISTS order_items (
     options JSONB DEFAULT '{}'
 );
 
-CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255) DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS payment_receipts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    payment_method VARCHAR(50) NOT NULL,
+    reference_number VARCHAR(100) NOT NULL,
+    issuing_bank VARCHAR(100),
+    receiving_bank VARCHAR(100),
+    amount_usd NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    amount_bs NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(30) NOT NULL DEFAULT 'pending',
+    verified_at TIMESTAMPTZ,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_receipts_order ON payment_receipts(order_id);
+CREATE INDEX IF NOT EXISTS idx_payment_receipts_reference ON payment_receipts(reference_number);
+
+CREATE TABLE IF NOT EXISTS reviews (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    customer_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
+    driver_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_reviews_order ON reviews(order_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_store ON reviews(store_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_driver ON reviews(driver_id);
 
 -- Seed System Vendors & Default Demo Users
 INSERT INTO users (id, keycloak_id, email, phone, first_name, last_name, role)
