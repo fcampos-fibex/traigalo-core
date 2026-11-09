@@ -15,6 +15,7 @@ type PaymentReceipt struct {
 	ReceivingBank   string     `json:"receiving_bank"`
 	AmountUSD       float64    `json:"amount_usd"`
 	AmountBS        float64    `json:"amount_bs"`
+	BSRate          float64    `json:"bs_rate"`
 	Status          string     `json:"status"`
 	VerifiedAt      *time.Time `json:"verified_at,omitempty"`
 	Notes           string     `json:"notes,omitempty"`
@@ -29,6 +30,7 @@ type CreateReceiptRequest struct {
 	ReceivingBank   string    `json:"receiving_bank"`
 	AmountUSD       float64   `json:"amount_usd"`
 	AmountBS        float64   `json:"amount_bs"`
+	BSRate          float64   `json:"bs_rate"`
 	Notes           string    `json:"notes,omitempty"`
 }
 

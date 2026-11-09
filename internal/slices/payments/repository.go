@@ -27,10 +27,10 @@ func (r *Repository) CreateReceipt(ctx context.Context, req CreateReceiptRequest
 
 	query := `
 		INSERT INTO payment_receipts (
-			order_id, payment_method, reference_number, bank_origin, bank_destination,
-			amount_usd, amount_bs, status, notes
+			id, order_id, payment_method, reference_number, bank_origin, bank_destination,
+			amount_usd, amount_bs, bs_rate, status, notes
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, 'pending', $8
+			gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9
 		)
 		RETURNING id, created_at
 	`
@@ -48,7 +48,7 @@ func (r *Repository) CreateReceipt(ctx context.Context, req CreateReceiptRequest
 	err = r.pool.QueryRow(
 		ctx, query,
 		req.OrderID, req.PaymentMethod, req.ReferenceNumber, req.IssuingBank, req.ReceivingBank,
-		req.AmountUSD, req.AmountBS, req.Notes,
+		req.AmountUSD, req.AmountBS, req.BSRate, req.Notes,
 	).Scan(&rc.ID, &rc.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert receipt: %w", err)
