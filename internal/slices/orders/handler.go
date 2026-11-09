@@ -23,9 +23,48 @@ func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
 	r.Get("/", h.List)
 	r.Post("/", h.Create)
+	r.Get("/estimate", h.EstimateDelivery)
 	r.Get("/{orderId}", h.GetByID)
 	r.Post("/{orderId}/actions", h.ExecuteAction)
 	return r
+}
+
+func (h *Handler) EstimateDelivery(w http.ResponseWriter, r *http.Request) {
+	storeIDParam := r.URL.Query().Get("store-id")
+	if storeIDParam == "" {
+		storeIDParam = r.URL.Query().Get("store_id")
+	}
+	storeID, err := uuid.Parse(storeIDParam)
+	if err != nil {
+		http.Error(w, `{"error": "store-id is required and must be a valid UUID"}`, http.StatusBadRequest)
+		return
+	}
+
+	latParam := r.URL.Query().Get("lat")
+	if latParam == "" {
+		latParam = r.URL.Query().Get("latitude")
+	}
+	lat, err1 := strconv.ParseFloat(latParam, 64)
+
+	lngParam := r.URL.Query().Get("lng")
+	if lngParam == "" {
+		lngParam = r.URL.Query().Get("longitude")
+	}
+	lng, err2 := strconv.ParseFloat(lngParam, 64)
+
+	if err1 != nil || err2 != nil {
+		http.Error(w, `{"error": "lat and lng must be valid float numbers"}`, http.StatusBadRequest)
+		return
+	}
+
+	estimate, err := h.repo.EstimateDelivery(r.Context(), storeID, lat, lng)
+	if err != nil {
+		http.Error(w, `{"error": "failed to calculate delivery estimate: `+err.Error()+`"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(estimate)
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +133,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	order, err := h.repo.Create(r.Context(), req)
 	if err != nil {
-		http.Error(w, `{"error": "failed to create order"}`, http.StatusInternalServerError)
+		http.Error(w, `{"error": "failed to create order: `+err.Error()+`"}`, http.StatusBadRequest)
 		return
 	}
 

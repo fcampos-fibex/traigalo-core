@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS orders (
     subtotal NUMERIC(12, 2) NOT NULL CHECK (subtotal >= 0),
     delivery_fee NUMERIC(12, 2) NOT NULL DEFAULT 0.00 CHECK (delivery_fee >= 0),
     service_fee NUMERIC(12, 2) NOT NULL DEFAULT 0.00 CHECK (service_fee >= 0),
+    tip_usd NUMERIC(12, 2) NOT NULL DEFAULT 0.00 CHECK (tip_usd >= 0),
     commission_fee NUMERIC(12, 2) NOT NULL DEFAULT 0.00 CHECK (commission_fee >= 0),
     total NUMERIC(12, 2) NOT NULL CHECK (total >= 0),
     total_usd NUMERIC(12, 2) NOT NULL DEFAULT 0.00 CHECK (total_usd >= 0),
@@ -101,6 +102,7 @@ CREATE TABLE IF NOT EXISTS orders (
     delivered_at TIMESTAMPTZ
 );
 
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS tip_usd NUMERIC(12, 2) NOT NULL DEFAULT 0.00;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS commission_fee NUMERIC(12, 2) NOT NULL DEFAULT 0.00;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_usd NUMERIC(12, 2) NOT NULL DEFAULT 0.00;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS bs_rate NUMERIC(12, 4) NOT NULL DEFAULT 0.0000;

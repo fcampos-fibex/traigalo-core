@@ -41,6 +41,7 @@ type Order struct {
 	Subtotal          float64     `json:"subtotal"`
 	DeliveryFee       float64     `json:"delivery_fee"`
 	ServiceFee        float64     `json:"service_fee"`
+	TipUSD            float64     `json:"tip_usd"`
 	CommissionFee     float64     `json:"commission_fee"`
 	Total             float64     `json:"total"`
 	TotalUSD          float64     `json:"total_usd"`
@@ -70,12 +71,20 @@ type CreateOrderRequest struct {
 	DeliveryLongitude float64                  `json:"delivery_longitude"`
 	DeliveryAddress   string                   `json:"delivery_address"`
 	PaymentMethod     string                   `json:"payment_method"`
-	DeliveryFee       float64                  `json:"delivery_fee"`
-	ServiceFee        float64                  `json:"service_fee"`
+	DeliveryFee       float64                  `json:"delivery_fee,omitempty"`
+	ServiceFee        float64                  `json:"service_fee,omitempty"`
+	TipUSD            float64                  `json:"tip_usd,omitempty"`
 	Items             []CreateOrderItemRequest `json:"items"`
 }
 
 type OrderActionRequest struct {
 	Action   string     `json:"action"`
 	DriverID *uuid.UUID `json:"driver_id,omitempty"`
+}
+
+type DeliveryEstimateResponse struct {
+	DistanceKM       float64 `json:"distance_km"`
+	DeliveryFeeUSD   float64 `json:"delivery_fee_usd"`
+	DeliveryFeeBS    float64 `json:"delivery_fee_bs"`
+	EstimatedMinutes int     `json:"estimated_minutes"`
 }

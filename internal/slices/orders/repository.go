@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,6 +28,66 @@ func NewRepository(pool *pgxpool.Pool, ratesService *rates.Service, redis *redis
 	}
 }
 
+func CalculateDistanceKM(lat1, lon1, lat2, lon2 float64) float64 {
+	const earthRadiusKM = 6371.0
+	dLat := (lat2 - lat1) * math.Pi / 180.0
+	dLon := (lon2 - lon1) * math.Pi / 180.0
+	rLat1 := lat1 * math.Pi / 180.0
+	rLat2 := lat2 * math.Pi / 180.0
+
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(rLat1)*math.Cos(rLat2)*math.Sin(dLon/2)*math.Sin(dLon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return earthRadiusKM * c
+}
+
+func CalculateDeliveryFee(distanceKM float64) float64 {
+	fee := 1.00 + (distanceKM * 0.50)
+	if fee < 1.50 {
+		fee = 1.50
+	}
+	if fee > 8.00 {
+		fee = 8.00
+	}
+	return math.Round(fee*100) / 100
+}
+
+func (r *Repository) EstimateDelivery(ctx context.Context, storeID uuid.UUID, clientLat, clientLng float64) (*DeliveryEstimateResponse, error) {
+	var storeLat, storeLng float64
+	query := `
+		SELECT ST_Y(location::geometry), ST_X(location::geometry)
+		FROM stores
+		WHERE id = $1
+	`
+	err := r.pool.QueryRow(ctx, query, storeID).Scan(&storeLat, &storeLng)
+	if err != nil {
+		return nil, fmt.Errorf("store not found: %w", err)
+	}
+
+	distKM := CalculateDistanceKM(storeLat, storeLng, clientLat, clientLng)
+	deliveryFeeUSD := CalculateDeliveryFee(distKM)
+
+	var bsRate float64 = 896.12
+	if r.ratesService != nil {
+		if rate, err := r.ratesService.GetOfficialRate(ctx); err == nil && rate > 0 {
+			bsRate = rate
+		}
+	}
+	deliveryFeeBS := math.Round(deliveryFeeUSD*bsRate*100) / 100
+
+	estimatedMinutes := 15 + int(math.Round(distKM*2.5))
+	if estimatedMinutes < 15 {
+		estimatedMinutes = 15
+	}
+
+	return &DeliveryEstimateResponse{
+		DistanceKM:       math.Round(distKM*10) / 10,
+		DeliveryFeeUSD:   deliveryFeeUSD,
+		DeliveryFeeBS:    deliveryFeeBS,
+		EstimatedMinutes: estimatedMinutes,
+	}, nil
+}
+
 func (r *Repository) Create(ctx context.Context, req CreateOrderRequest) (*Order, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -35,7 +96,8 @@ func (r *Repository) Create(ctx context.Context, req CreateOrderRequest) (*Order
 	defer tx.Rollback(ctx)
 
 	var commissionRate float64
-	err = tx.QueryRow(ctx, "SELECT commission_rate FROM stores WHERE id = $1", req.StoreID).Scan(&commissionRate)
+	var storeLat, storeLng float64
+	err = tx.QueryRow(ctx, "SELECT commission_rate, ST_Y(location::geometry), ST_X(location::geometry) FROM stores WHERE id = $1", req.StoreID).Scan(&commissionRate, &storeLat, &storeLng)
 	if err != nil {
 		return nil, fmt.Errorf("invalid store id: %w", err)
 	}
@@ -78,8 +140,24 @@ func (r *Repository) Create(ctx context.Context, req CreateOrderRequest) (*Order
 		})
 	}
 
+	distKM := CalculateDistanceKM(storeLat, storeLng, req.DeliveryLatitude, req.DeliveryLongitude)
+	deliveryFee := req.DeliveryFee
+	if distKM > 0 || deliveryFee <= 0 {
+		deliveryFee = CalculateDeliveryFee(distKM)
+	}
+
+	serviceFee := req.ServiceFee
+	if serviceFee <= 0 {
+		serviceFee = 0.50
+	}
+
+	tipUSD := req.TipUSD
+	if tipUSD < 0 {
+		tipUSD = 0
+	}
+
 	commissionFee := subtotal * (commissionRate / 100.0)
-	totalUSD := subtotal + req.DeliveryFee + req.ServiceFee
+	totalUSD := subtotal + deliveryFee + serviceFee + tipUSD
 
 	var bsRate float64 = 896.12
 	if r.ratesService != nil {
@@ -87,17 +165,17 @@ func (r *Repository) Create(ctx context.Context, req CreateOrderRequest) (*Order
 			bsRate = rate
 		}
 	}
-	totalBS := totalUSD * bsRate
+	totalBS := math.Round(totalUSD*bsRate*100) / 100
 
 	orderQuery := `
 		INSERT INTO orders (
 			customer_id, store_id, status, subtotal, delivery_fee, 
-			service_fee, commission_fee, total, total_usd, bs_rate, total_bs,
+			service_fee, tip_usd, commission_fee, total, total_usd, bs_rate, total_bs,
 			delivery_location, delivery_address, payment_method, payment_status
 		) VALUES (
 			$1, $2, 'placed', $3, $4, 
-			$5, $6, $7, $8, $9, $10,
-			ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, 'pending'
+			$5, $6, $7, $8, $9, $10, $11,
+			ST_SetSRID(ST_MakePoint($12, $13), 4326), $14, $15, 'pending'
 		)
 		RETURNING id, order_number, placed_at
 	`
@@ -107,8 +185,9 @@ func (r *Repository) Create(ctx context.Context, req CreateOrderRequest) (*Order
 	o.StoreID = req.StoreID
 	o.Status = StatusPlaced
 	o.Subtotal = subtotal
-	o.DeliveryFee = req.DeliveryFee
-	o.ServiceFee = req.ServiceFee
+	o.DeliveryFee = deliveryFee
+	o.ServiceFee = serviceFee
+	o.TipUSD = tipUSD
 	o.CommissionFee = commissionFee
 	o.Total = totalUSD
 	o.TotalUSD = totalUSD
@@ -122,8 +201,8 @@ func (r *Repository) Create(ctx context.Context, req CreateOrderRequest) (*Order
 
 	err = tx.QueryRow(
 		ctx, orderQuery,
-		req.CustomerID, req.StoreID, subtotal, req.DeliveryFee,
-		req.ServiceFee, commissionFee, totalUSD, totalUSD, bsRate, totalBS,
+		req.CustomerID, req.StoreID, subtotal, deliveryFee,
+		serviceFee, tipUSD, commissionFee, totalUSD, totalUSD, bsRate, totalBS,
 		req.DeliveryLongitude, req.DeliveryLatitude, req.DeliveryAddress, req.PaymentMethod,
 	).Scan(&o.ID, &o.OrderNumber, &o.PlacedAt)
 	if err != nil {
@@ -179,7 +258,7 @@ func (r *Repository) List(ctx context.Context, status string, customerID, storeI
 	query := `
 		SELECT 
 			id, order_number, customer_id, store_id, driver_id, status, 
-			subtotal, delivery_fee, service_fee, COALESCE(commission_fee, 0), total,
+			subtotal, delivery_fee, service_fee, COALESCE(tip_usd, 0), COALESCE(commission_fee, 0), total,
 			COALESCE(total_usd, total), COALESCE(bs_rate, 0), COALESCE(total_bs, 0),
 			ST_Y(delivery_location::geometry) as lat, ST_X(delivery_location::geometry) as lng,
 			delivery_address, payment_method, payment_status, placed_at, delivered_at
@@ -224,7 +303,7 @@ func (r *Repository) List(ctx context.Context, status string, customerID, storeI
 		var o Order
 		if err := rows.Scan(
 			&o.ID, &o.OrderNumber, &o.CustomerID, &o.StoreID, &o.DriverID, &o.Status,
-			&o.Subtotal, &o.DeliveryFee, &o.ServiceFee, &o.CommissionFee, &o.Total,
+			&o.Subtotal, &o.DeliveryFee, &o.ServiceFee, &o.TipUSD, &o.CommissionFee, &o.Total,
 			&o.TotalUSD, &o.BSRate, &o.TotalBS,
 			&o.DeliveryLatitude, &o.DeliveryLongitude, &o.DeliveryAddress,
 			&o.PaymentMethod, &o.PaymentStatus, &o.PlacedAt, &o.DeliveredAt,
@@ -241,7 +320,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Order, error) 
 	query := `
 		SELECT 
 			id, order_number, customer_id, store_id, driver_id, status, 
-			subtotal, delivery_fee, service_fee, COALESCE(commission_fee, 0), total,
+			subtotal, delivery_fee, service_fee, COALESCE(tip_usd, 0), COALESCE(commission_fee, 0), total,
 			COALESCE(total_usd, total), COALESCE(bs_rate, 0), COALESCE(total_bs, 0),
 			ST_Y(delivery_location::geometry) as lat, ST_X(delivery_location::geometry) as lng,
 			delivery_address, payment_method, payment_status, placed_at, delivered_at
@@ -251,7 +330,7 @@ func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Order, error) 
 	var o Order
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&o.ID, &o.OrderNumber, &o.CustomerID, &o.StoreID, &o.DriverID, &o.Status,
-		&o.Subtotal, &o.DeliveryFee, &o.ServiceFee, &o.CommissionFee, &o.Total,
+		&o.Subtotal, &o.DeliveryFee, &o.ServiceFee, &o.TipUSD, &o.CommissionFee, &o.Total,
 		&o.TotalUSD, &o.BSRate, &o.TotalBS,
 		&o.DeliveryLatitude, &o.DeliveryLongitude, &o.DeliveryAddress,
 		&o.PaymentMethod, &o.PaymentStatus, &o.PlacedAt, &o.DeliveredAt,
