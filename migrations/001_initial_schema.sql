@@ -166,18 +166,3 @@ VALUES
     ('33333333-3333-3333-3333-333333333333', 'usr_driver_carlos', 'driver@traigalo.com', '+584121000003', 'Carlos', 'Mendoza', 'driver'),
     ('44444444-4444-4444-4444-444444444444', 'usr_customer_demo', 'cliente@traigalo.com', '+584121000004', 'Freddy', 'Campos', 'customer')
 ON CONFLICT (keycloak_id) DO NOTHING;
-
--- Seed Initial Stores & Menu
-INSERT INTO stores (id, owner_id, name, slug, description, location, address_line, commission_rate, is_open)
-VALUES 
-    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'Burger Crave', 'burger-crave', 'Smash burgers gourmet y complementos', ST_SetSRID(ST_MakePoint(-66.8620, 10.4910), 4326), 'Av. Principal Las Mercedes, Caracas', 12.00, true),
-    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '22222222-2222-2222-2222-222222222222', 'Sushi Omakase Roll', 'sushi-omakase', 'Rolls japoneses y bowls frescos', ST_SetSRID(ST_MakePoint(-66.8550, 10.4930), 4326), 'Calle Madrid, Las Mercedes, Caracas', 15.00, true)
-ON CONFLICT (slug) DO NOTHING;
-
-INSERT INTO products (id, store_id, name, description, base_price, is_available)
-VALUES 
-    ('55555555-5555-5555-5555-555555555555', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Crispy Supreme Smash', 'Doble carne smash, cebolla caramelizada, cheddar fundido y salsa secreta', 14.50, true),
-    ('66666666-6666-6666-6666-666666666666', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Smoked Bacon BBQ Melt', 'Carne madurada, doble tocineta ahumada, BBQ artesanal', 15.00, true),
-    ('77777777-7777-7777-7777-777777777777', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Papas Rústicas Trufadas', 'Papas rústicas con aceite de trufa y queso parmesano gratinado', 5.50, true),
-    ('88888888-8888-8888-8888-888888888888', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Combo Tokio Special 16 pcs', 'Variedad de rolls tempura, salmón fresco y atún', 32.00, true)
-ON CONFLICT (id) DO NOTHING;

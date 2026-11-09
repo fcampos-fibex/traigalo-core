@@ -16,6 +16,7 @@ import (
 	"github.com/traigalo/traigalo-core/internal/platform/middleware"
 	"github.com/traigalo/traigalo-core/internal/slices/auth"
 	"github.com/traigalo/traigalo-core/internal/slices/categories"
+	"github.com/traigalo/traigalo-core/internal/slices/dispatch"
 	"github.com/traigalo/traigalo-core/internal/slices/drivers"
 	"github.com/traigalo/traigalo-core/internal/slices/health"
 	"github.com/traigalo/traigalo-core/internal/slices/orders"
@@ -88,6 +89,9 @@ func main() {
 	ordersRepo := orders.NewRepository(dbPool, ratesService, redisClient)
 	ordersHandler := orders.NewHandler(ordersRepo)
 
+	dispatchRepo := dispatch.NewRepository(dbPool, redisClient)
+	dispatchHandler := dispatch.NewHandler(dispatchRepo)
+
 	driversHub := drivers.NewHub(redisClient)
 	go driversHub.Run(ctx)
 
@@ -114,6 +118,7 @@ func main() {
 		r.Mount("/payments", paymentsHandler.Routes())
 		r.Mount("/reviews", reviewsHandler.Routes())
 		r.Mount("/orders", ordersHandler.Routes())
+		r.Mount("/dispatch", dispatchHandler.Routes())
 		r.Mount("/drivers/locations", driversHandler.Routes())
 		r.Get("/drivers/telemetry", driversHub.HandleWebSocket)
 	})
