@@ -28,9 +28,9 @@ func (r *Repository) CreateReceipt(ctx context.Context, req CreateReceiptRequest
 	query := `
 		INSERT INTO payment_receipts (
 			id, order_id, payment_method, reference_number, bank_origin, bank_destination,
-			amount_usd, amount_bs, bs_rate, status, notes
+			amount_usd, amount_bs, bs_rate, status, notes, created_at
 		) VALUES (
-			gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9
+			gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, NOW()
 		)
 		RETURNING id, created_at
 	`
