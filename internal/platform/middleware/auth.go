@@ -21,6 +21,8 @@ type KeycloakClaims struct {
 	Sub               string      `json:"sub"`
 	PreferredUsername string      `json:"preferred_username"`
 	Email             string      `json:"email"`
+	GivenName         string      `json:"given_name"`
+	FamilyName        string      `json:"family_name"`
 	RealmAccess       RealmAccess `json:"realm_access"`
 	jwt.RegisteredClaims
 }
