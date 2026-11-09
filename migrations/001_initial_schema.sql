@@ -158,6 +158,43 @@ CREATE INDEX IF NOT EXISTS idx_reviews_order ON reviews(order_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_store ON reviews(store_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_driver ON reviews(driver_id);
 
+DO $$ BEGIN
+    CREATE TYPE ride_status AS ENUM (
+        'requested',
+        'driver_assigned',
+        'in_trip',
+        'completed',
+        'cancelled'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+CREATE TABLE IF NOT EXISTS rides (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id UUID NOT NULL REFERENCES users(id),
+    driver_id UUID REFERENCES users(id),
+    vehicle_type VARCHAR(30) NOT NULL DEFAULT 'standard',
+    status ride_status NOT NULL DEFAULT 'requested',
+    pickup_location GEOMETRY(Point, 4326) NOT NULL,
+    pickup_address TEXT NOT NULL,
+    dropoff_location GEOMETRY(Point, 4326) NOT NULL,
+    dropoff_address TEXT NOT NULL,
+    distance_km NUMERIC(8, 2) NOT NULL DEFAULT 0.00,
+    fare_usd NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    bs_rate NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
+    fare_bs NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'cash',
+    payment_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_rides_status ON rides(status);
+CREATE INDEX IF NOT EXISTS idx_rides_customer ON rides(customer_id);
+CREATE INDEX IF NOT EXISTS idx_rides_driver ON rides(driver_id);
+
 -- Seed System Vendors & Default Demo Users
 INSERT INTO users (id, keycloak_id, email, phone, first_name, last_name, role)
 VALUES 

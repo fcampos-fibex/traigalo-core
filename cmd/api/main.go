@@ -24,7 +24,9 @@ import (
 	"github.com/traigalo/traigalo-core/internal/slices/products"
 	"github.com/traigalo/traigalo-core/internal/slices/rates"
 	"github.com/traigalo/traigalo-core/internal/slices/reviews"
+	"github.com/traigalo/traigalo-core/internal/slices/rides"
 	"github.com/traigalo/traigalo-core/internal/slices/stores"
+	"github.com/traigalo/traigalo-core/internal/slices/tracking"
 )
 
 func main() {
@@ -89,8 +91,14 @@ func main() {
 	ordersRepo := orders.NewRepository(dbPool, ratesService, redisClient)
 	ordersHandler := orders.NewHandler(ordersRepo)
 
+	trackingRepo := tracking.NewRepository(dbPool, redisClient)
+	trackingHandler := tracking.NewHandler(trackingRepo)
+
 	dispatchRepo := dispatch.NewRepository(dbPool, redisClient)
 	dispatchHandler := dispatch.NewHandler(dispatchRepo)
+
+	ridesRepo := rides.NewRepository(dbPool, redisClient, ratesService)
+	ridesHandler := rides.NewHandler(ridesRepo)
 
 	driversHub := drivers.NewHub(redisClient)
 	go driversHub.Run(ctx)
@@ -118,7 +126,9 @@ func main() {
 		r.Mount("/payments", paymentsHandler.Routes())
 		r.Mount("/reviews", reviewsHandler.Routes())
 		r.Mount("/orders", ordersHandler.Routes())
+		r.Get("/orders/{orderId}/route", trackingHandler.GetOrderRoute)
 		r.Mount("/dispatch", dispatchHandler.Routes())
+		r.Mount("/rides", ridesHandler.Routes())
 		r.Mount("/drivers/locations", driversHandler.Routes())
 		r.Get("/drivers/telemetry", driversHub.HandleWebSocket)
 	})
