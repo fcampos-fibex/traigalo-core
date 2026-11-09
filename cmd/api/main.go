@@ -14,9 +14,11 @@ import (
 	"github.com/traigalo/traigalo-core/internal/platform/cache"
 	"github.com/traigalo/traigalo-core/internal/platform/database"
 	"github.com/traigalo/traigalo-core/internal/platform/middleware"
+	"github.com/traigalo/traigalo-core/internal/slices/categories"
 	"github.com/traigalo/traigalo-core/internal/slices/drivers"
 	"github.com/traigalo/traigalo-core/internal/slices/health"
 	"github.com/traigalo/traigalo-core/internal/slices/orders"
+	"github.com/traigalo/traigalo-core/internal/slices/products"
 	"github.com/traigalo/traigalo-core/internal/slices/rates"
 	"github.com/traigalo/traigalo-core/internal/slices/stores"
 )
@@ -65,6 +67,12 @@ func main() {
 	storesRepo := stores.NewRepository(dbPool)
 	storesHandler := stores.NewHandler(storesRepo)
 
+	categoriesRepo := categories.NewRepository(dbPool)
+	categoriesHandler := categories.NewHandler(categoriesRepo)
+
+	productsRepo := products.NewRepository(dbPool)
+	productsHandler := products.NewHandler(productsRepo)
+
 	ordersRepo := orders.NewRepository(dbPool, ratesService, redisClient)
 	ordersHandler := orders.NewHandler(ordersRepo)
 
@@ -88,6 +96,8 @@ func main() {
 		r.Get("/health", healthHandler.Check)
 		r.Mount("/rates", ratesHandler.Routes())
 		r.Mount("/stores", storesHandler.Routes())
+		r.Mount("/categories", categoriesHandler.Routes())
+		r.Mount("/products", productsHandler.Routes())
 		r.Mount("/orders", ordersHandler.Routes())
 		r.Mount("/drivers/locations", driversHandler.Routes())
 		r.Get("/drivers/telemetry", driversHub.HandleWebSocket)
