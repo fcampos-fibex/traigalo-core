@@ -27,7 +27,7 @@ func (r *Repository) CreateReceipt(ctx context.Context, req CreateReceiptRequest
 
 	query := `
 		INSERT INTO payment_receipts (
-			order_id, payment_method, reference_number, issuing_bank, receiving_bank,
+			order_id, payment_method, reference_number, bank_origin, bank_destination,
 			amount_usd, amount_bs, status, notes
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, 'pending', $8
@@ -59,8 +59,8 @@ func (r *Repository) CreateReceipt(ctx context.Context, req CreateReceiptRequest
 
 func (r *Repository) ListReceipts(ctx context.Context, orderID *uuid.UUID, limit, offset int) ([]PaymentReceipt, error) {
 	query := `
-		SELECT id, order_id, payment_method, reference_number, COALESCE(issuing_bank, ''),
-		       COALESCE(receiving_bank, ''), amount_usd, amount_bs, status, verified_at,
+		SELECT id, order_id, payment_method, reference_number, COALESCE(bank_origin, ''),
+		       COALESCE(bank_destination, ''), amount_usd, amount_bs, status, verified_at,
 		       COALESCE(notes, ''), created_at
 		FROM payment_receipts
 		WHERE 1=1
