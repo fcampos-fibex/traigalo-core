@@ -49,7 +49,7 @@ func (r *Repository) Create(ctx context.Context, req CreateReviewRequest) (*Revi
 
 func (r *Repository) List(ctx context.Context, storeID, driverID *uuid.UUID, limit, offset int) ([]Review, error) {
 	query := `
-		SELECT id, order_id, customer_id, store_id, driver_id, rating, COALESCE(comment, ''), created_at
+		SELECT id, order_id, customer_id, store_id, driver_id, COALESCE(store_rating, 5), COALESCE(comment, ''), created_at
 		FROM reviews
 		WHERE 1=1
 	`
