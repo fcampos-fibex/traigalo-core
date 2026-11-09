@@ -24,8 +24,8 @@ func (r *Repository) Create(ctx context.Context, req CreateReviewRequest) (*Revi
 	}
 
 	query := `
-		INSERT INTO reviews (order_id, customer_id, store_id, driver_id, rating, comment)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO reviews (id, order_id, customer_id, store_id, driver_id, store_rating, comment, created_at)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW())
 		RETURNING id, created_at
 	`
 	var rev Review
