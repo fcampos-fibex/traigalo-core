@@ -23,7 +23,7 @@ func (h *Handler) Routes() chi.Router {
 	r.Post("/login", h.Login)
 	r.Post("/register", h.Register)
 	r.Get("/oidc-config", h.OIDCConfig)
-	r.Get("/me", h.Me)
+	r.With(middleware.RequireAuth).Get("/me", h.Me)
 	return r
 }
 

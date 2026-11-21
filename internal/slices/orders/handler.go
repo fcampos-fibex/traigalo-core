@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/traigalo/traigalo-core/internal/platform/middleware"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -21,11 +23,11 @@ func NewHandler(repo *Repository) *Handler {
 
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
-	r.Get("/", h.List)
-	r.Post("/", h.Create)
+	r.With(middleware.RequireAuth).Get("/", h.List)
+	r.With(middleware.RequireAuth).Post("/", h.Create)
 	r.Get("/estimate", h.EstimateDelivery)
-	r.Get("/{orderId}", h.GetByID)
-	r.Post("/{orderId}/actions", h.ExecuteAction)
+	r.With(middleware.RequireAuth).Get("/{orderId}", h.GetByID)
+	r.With(middleware.RequireAuth).Post("/{orderId}/actions", h.ExecuteAction)
 	return r
 }
 
@@ -161,6 +163,12 @@ func (h *Handler) ExecuteAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req, ok := bindActor(r, req)
+	if !ok {
+		http.Error(w, `{"error": "driver identity required"}`, http.StatusForbidden)
+		return
+	}
+
 	err = h.repo.ExecuteAction(r.Context(), orderID, req)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -178,4 +186,16 @@ func (h *Handler) ExecuteAction(w http.ResponseWriter, r *http.Request) {
 		"action":   req.Action,
 		"status":   "executed",
 	})
+}
+
+func bindActor(r *http.Request, req OrderActionRequest) (OrderActionRequest, bool) {
+	user := middleware.GetUserContext(r.Context())
+	if req.Action != "assign-driver" || user.HasRole("admin") {
+		return req, true
+	}
+	driverID, err := uuid.Parse(user.ID)
+	if err != nil {
+		return req, false
+	}
+	return OrderActionRequest{Action: req.Action, DriverID: &driverID}, true
 }

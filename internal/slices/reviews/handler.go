@@ -21,7 +21,7 @@ func NewHandler(repo *Repository) *Handler {
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
 	r.Get("/", h.List)
-	r.Post("/", h.Create)
+	r.With(middleware.RequireAuth).Post("/", h.Create)
 	return r
 }
 

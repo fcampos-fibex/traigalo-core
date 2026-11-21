@@ -131,7 +131,7 @@ func (r *Repository) Login(ctx context.Context, req LoginRequest) (*AuthResponse
 		email = req.Email
 	}
 
-	kcID := claims.Sub
+	kcID := claims.Subject
 	if kcID == "" {
 		kcID = "kc_" + uuid.New().String()
 	}

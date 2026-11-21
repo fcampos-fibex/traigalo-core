@@ -52,12 +52,12 @@ func (r *Repository) FindNearby(ctx context.Context, lat, lng, radiusKM float64,
 	}
 
 	locations, err := r.redis.GeoRadius(ctx, DriversGeoKey, lng, lat, &redis.GeoRadiusQuery{
-		Radius:      radiusKM,
-		Unit:        "km",
-		WithCoord:   true,
-		WithDist:    true,
-		Count:       count,
-		Sort:        "ASC",
+		Radius:    radiusKM,
+		Unit:      "km",
+		WithCoord: true,
+		WithDist:  true,
+		Count:     count,
+		Sort:      "ASC",
 	}).Result()
 
 	if err != nil {

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/traigalo/traigalo-core/internal/platform/middleware"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
@@ -18,7 +20,7 @@ func NewHandler(repo *Repository) *Handler {
 
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
-	r.Get("/{orderId}/route", h.GetOrderRoute)
+	r.With(middleware.RequireAuth).Get("/{orderId}/route", h.GetOrderRoute)
 	return r
 }
 

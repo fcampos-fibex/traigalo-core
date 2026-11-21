@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/traigalo/traigalo-core/internal/platform/middleware"
+
 	"github.com/go-chi/chi/v5"
 )
 
@@ -23,9 +25,9 @@ func NewHandler(repo *Repository, hub *Hub) *Handler {
 
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
-	r.Post("/", h.UpdateLocation)
+	r.With(middleware.RequireRole("driver", "admin")).Post("/", h.UpdateLocation)
 	r.Get("/nearby", h.FindNearby)
-	r.Get("/telemetry", h.TelemetryWebSocket)
+	r.With(middleware.RequireRole("driver", "admin")).Get("/telemetry", h.TelemetryWebSocket)
 	return r
 }
 

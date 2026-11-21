@@ -108,13 +108,15 @@ func main() {
 
 	healthHandler := health.NewHandler(dbPool, redisClient)
 
+	issuer := middleware.KeycloakIssuer(getEnv("KEYCLOAK_URL", "https://auth.traigalo.org"), getEnv("KEYCLOAK_REALM", "traigalo"))
+
 	r := chi.NewRouter()
 	r.Use(chiMiddleware.RequestID)
 	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(middleware.CORS)
-	r.Use(middleware.GatewayAuth)
+	r.Use(middleware.Authenticate(middleware.NewVerifier(issuer, middleware.NewKeySet(issuer+"/protocol/openid-connect/certs"))))
 
 	r.Route("/v2", func(r chi.Router) {
 		r.Get("/health", healthHandler.Check)
@@ -126,11 +128,11 @@ func main() {
 		r.Mount("/payments", paymentsHandler.Routes())
 		r.Mount("/reviews", reviewsHandler.Routes())
 		r.Mount("/orders", ordersHandler.Routes())
-		r.Get("/orders/{orderId}/route", trackingHandler.GetOrderRoute)
+		r.With(middleware.RequireAuth).Get("/orders/{orderId}/route", trackingHandler.GetOrderRoute)
 		r.Mount("/dispatch", dispatchHandler.Routes())
 		r.Mount("/rides", ridesHandler.Routes())
 		r.Mount("/drivers/locations", driversHandler.Routes())
-		r.Get("/drivers/telemetry", driversHub.HandleWebSocket)
+		r.With(middleware.RequireRole("driver", "admin")).Get("/drivers/telemetry", driversHub.HandleWebSocket)
 	})
 
 	srv := &http.Server{

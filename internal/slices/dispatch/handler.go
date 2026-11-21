@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/traigalo/traigalo-core/internal/platform/middleware"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
@@ -18,8 +20,8 @@ func NewHandler(repo *Repository) *Handler {
 
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
-	r.Post("/assign", h.Assign)
-	r.Post("/offers/{offerId}/actions", h.ExecuteAction)
+	r.With(middleware.RequireRole("admin")).Post("/assign", h.Assign)
+	r.With(middleware.RequireRole("driver", "admin")).Post("/offers/{offerId}/actions", h.ExecuteAction)
 	return r
 }
 

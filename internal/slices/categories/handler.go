@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/traigalo/traigalo-core/internal/platform/middleware"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
@@ -20,7 +22,7 @@ func NewHandler(repo *Repository) *Handler {
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
 	r.Get("/", h.List)
-	r.Post("/", h.Create)
+	r.With(middleware.RequireRole("admin")).Post("/", h.Create)
 	r.Get("/{categoryId}", h.GetByID)
 	return r
 }

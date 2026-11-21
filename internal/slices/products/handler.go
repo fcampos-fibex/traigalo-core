@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/traigalo/traigalo-core/internal/platform/middleware"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -22,10 +24,10 @@ func NewHandler(repo *Repository) *Handler {
 func (h *Handler) Routes() chi.Router {
 	r := chi.NewRouter()
 	r.Get("/", h.List)
-	r.Post("/", h.Create)
+	r.With(middleware.RequireRole("vendor", "admin")).Post("/", h.Create)
 	r.Get("/{productId}", h.GetByID)
-	r.Put("/{productId}", h.Update)
-	r.Delete("/{productId}", h.Delete)
+	r.With(middleware.RequireRole("vendor", "admin")).Put("/{productId}", h.Update)
+	r.With(middleware.RequireRole("vendor", "admin")).Delete("/{productId}", h.Delete)
 	return r
 }
 
